@@ -21,8 +21,11 @@ typedef struct
     unsigned char data[8];
     unsigned char len;
     unsigned char prty;
-} CAN0_DATATYPE rxMsg;
-static CAN0_DATATYPE msgRX;
+}CANmsg;
+static CANmsg rxMsg;
+
+extern void	InterruptModuleSetup(void);
+
 
 #pragma CODE_SEG APP_ROM_ENTRY
 void _EntryPoint(void)
@@ -33,12 +36,14 @@ void _EntryPoint(void)
 
 void _GoBoot(void)
 {
-	__asm(lds  #$3900);
-	__asm(jmp  _Startup);
+//	__asm(lds  #$3900);
+//	__asm(jmp  _Startup);
+//    __asm(beq   GoBoot);
+    _Startup();
 }
 #pragma CODE_SEG  DEFAULT
 
-Bool MSCANGetMsg(struct can_msg *msg)
+Bool MSCANGetMsg(CANmsg *msg)
 {
 	unsigned char sp2;
 	
@@ -73,15 +78,15 @@ Bool MSCANGetMsg(struct can_msg *msg)
 	return(TRUE);
 }
 
-u8 CanRxRead(CAN0_DATATYPE * rxMsg)
+u8 CanRxRead(CANmsg * rxMsg)
 {
 	if(TRUE == MSCANGetMsg(rxMsg)) /*only Standard format ID*/
 	{
 		/*judeg if it is bootrequest: 0xAA ... */
 		
-		if(DownLoadID == rxMsg.id)
+		if(DownLoadID == rxMsg->id)
 		{
-			if(0xAA==rxMsg.data[0] && 0xAA==rxMsg.data[1] && 0xAA==rxMsg.data[2])
+			if(0xAA==rxMsg->data[0] && 0xAA==rxMsg->data[1] && 0xAA==rxMsg->data[2])
 			{
 				return _BOOT_REQ;
 			}
@@ -91,7 +96,7 @@ u8 CanRxRead(CAN0_DATATYPE * rxMsg)
 	}
 	else
 	{
-		return _ERROR_CANRX
+		return _ERROR_CANRX;
 		/*return error code*/
 	}
 
@@ -146,6 +151,7 @@ void Dlyms(int tick)
 
 void bootStart(void) 
 {
+  u16 i;
 	/* put your own code here */
 	_Boot_Flag = _NO_BOOT_REQ;
     _E_State = _STA_NOT_LINKED;
@@ -153,7 +159,7 @@ void bootStart(void)
 	DisableInterrupts;
     SetBusCLK_M(16); 
 //	CopyCodeToRAM();
-	InterruptModuleSetup();
+//	InterruptModuleSetup();
 //	TIM_Init(); 
 //	FlashInit();
 	
@@ -164,13 +170,13 @@ void bootStart(void)
 	// wait 500ms for Bootload link request from host
 	for (i=0; i<1000; i++) 
 	{   
-		_Boot_Flag = CanRxRead(&rxMsg);//读取寄存器CAN数据，并进行判断,有boot请求，return 1
+		_Boot_Flag = CanRxRead(&rxMsg);//读取寄存器CAN数据，并进行判断,有boot请求
 
 		if (_Boot_Flag == _BOOT_REQ)
 		{
 			_Boot_Flag = _NO_BOOT_REQ;
 			_E_State = _STA_LINKED;	 /*没用上*/	
-			_Goboot();		
+			_GoBoot();		
 			break;
 		}
 		else 
